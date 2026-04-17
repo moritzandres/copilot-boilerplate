@@ -1,0 +1,15 @@
+{
+  "name": "copilot",
+  "description": "Project-local Copilot bundle for this repository",
+  "version": "0.1.0",
+  "author": {
+    "name": "Moritz Andres"
+  },
+  "agents": "agents/",
+  "skills": [
+    "skills/add-skill",
+    "skills/add-mcp",
+    "skills/dream"
+  ],
+  "mcpServers": ".mcp.json"
+}

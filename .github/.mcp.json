@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "deep-research": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcps/deep_research_mcp.py"
+      ]
+    }
+  }
+}
