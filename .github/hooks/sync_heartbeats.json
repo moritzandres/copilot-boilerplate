@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "python .github/scripts/sync_heartbeats.py",
+        "powershell": "python .github/scripts/sync_heartbeats_win.py"
+      }
+    ]
+  }
+}

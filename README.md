@@ -26,9 +26,16 @@ copilot plugin install document-skills@anthropic-agent-skills
 
 ```text
 .github/
+├── .heartbeats.json                  # Declarative heartbeat schedule and prompts
 ├── copilot-instructions.md          # Standard global instructions loaded into every Copilot session
 ├── plugin.json                      # Local plugin manifest — registers agents, skills & MCPs
 ├── .mcp.json                        # MCP server registry (stdio servers run via `uv`)
+├── hooks/                           # Copilot hook definitions (session lifecycle automation)
+│   └── sync_heartbeats.json         # Session-start hook that syncs heartbeat jobs
+├── scripts/                         # Helper scripts invoked by hooks
+│   ├── sync_heartbeats.py           # Linux cron sync
+│   ├── sync_heartbeats_mac.py       # macOS launchd sync
+│   └── sync_heartbeats_win.py       # Windows Task Scheduler sync
 │
 ├── agents/                          # Custom Copilot agent definitions
 │   ├── orchestrator.agent.md        # Lead-Architect — coordinates all other agents
@@ -72,7 +79,7 @@ copilot plugin install document-skills@anthropic-agent-skills
 The standard global instruction file loaded at the start of every Copilot session. It contains:
 
 - **Project Overview / Commands / Key Conventions** — placeholders you fill in for your project.
-- **Memory Bank Protocol** — tells Copilot how to read, use, and update the persistent memory files (see [§6 Memory](#6-memory-bank--memory)).
+- **Memory Bank Protocol** — tells Copilot how to read, use, and update the persistent memory files (see [§7 Memory](#7-memory-bank--memory)).
 
 ### 2. Plugin Manifest — `plugin.json`
 
@@ -154,7 +161,52 @@ Walks through scaffolding a new MCP server: gathering requirements, creating a F
 
 Triggers the memory maintenance cycle: reads all memory files, archives completed tasks, merges redundant decisions, extracts new workflows, updates project context, and presents the changes for review.
 
-### 6. Memory Bank — `memory/`
+### 6. Hooks and Heartbeats — `hooks/`, `scripts/`, and `.heartbeats.json`
+
+Hooks let Copilot run automation at session lifecycle boundaries. In this boilerplate, the currently implemented hook runs at **session start** and ensures the configured heartbeat jobs are synchronized with the local operating system scheduler.
+
+#### `hooks/sync_heartbeats.json`
+
+This file registers a `sessionStart` hook with platform-specific commands:
+
+- `bash` runs `python .github/scripts/sync_heartbeats.py`
+- `powershell` runs `python .github/scripts/sync_heartbeats_win.py`
+
+The effect is that whenever a real Copilot chat session starts in the repository, Copilot re-reads the heartbeat configuration and reapplies it to the local scheduler. That keeps the scheduled automation aligned with the checked-in config instead of relying on a one-time manual setup.
+
+#### `.heartbeats.json`
+
+This file is the declarative source of truth for heartbeat jobs:
+
+| Field | Purpose |
+| --- | --- |
+| `name` | Stable identifier used for the scheduled job name and log file name |
+| `schedule` | Five-field cron-style schedule string |
+| `prompt` | Copilot prompt to execute when the heartbeat fires |
+
+Current example:
+
+- `weekly-sleep` runs every Sunday at `03:00`
+- It executes the `dream` skill prompt to consolidate memory automatically
+
+#### Platform-specific scheduler sync
+
+The hook does not execute the heartbeat immediately. Instead, it translates `.heartbeats.json` into native scheduled jobs:
+
+| Platform | Script | Scheduler |
+| --- | --- | --- |
+| Linux | `scripts/sync_heartbeats.py` | `cron` |
+| macOS | `scripts/sync_heartbeats_mac.py` | `launchd` |
+| Windows | `scripts/sync_heartbeats_win.py` | Task Scheduler |
+
+On Windows, the sync script validates each heartbeat, creates a per-workspace task prefix, writes a short PowerShell wrapper script, and registers a Task Scheduler entry that launches Copilot in autopilot mode from the repository root. The task name format is `CopilotHB_<workspace-hash>_<heartbeat-name>`, which avoids collisions across repositories.
+
+This design gives you two important properties:
+
+1. Heartbeat definitions stay version-controlled in the repository.
+2. Session start acts as a repair point, re-registering jobs if they were deleted or changed locally.
+
+### 7. Memory Bank — `memory/`
 
 A persistent, file-based memory system that gives Copilot cross-session context. Governed by the **Memory Bank Protocol** defined in `copilot-instructions.md`.
 
@@ -184,6 +236,8 @@ A persistent, file-based memory system that gives Copilot cross-session context.
 | Add a new agent | Create `agents/<name>.agent.md` (auto-discovered via `plugin.json`) |
 | Add a new skill | Use the **add-skill** skill, or manually create `skills/<name>/SKILL.md` and register in `plugin.json` |
 | Add a new MCP server | Use the **add-mcp** skill, or manually create `mcps/<name>_mcp.py` and register in `.mcp.json` |
+| Add or change a startup hook | Edit `hooks/*.json` and point it at a script in `scripts/` |
+| Add or change a heartbeat job | Edit `.heartbeats.json`; the next session start will resync it |
 | Record a technical decision | Add an entry to `memory/decision-log.md` |
 | Document a repeatable workflow | Add steps to `memory/workflows.md` |
 

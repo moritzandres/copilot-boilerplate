@@ -1,0 +1,9 @@
+{
+  "heartbeats": [
+    {
+      "name": "weekly-sleep",
+      "schedule": "0 3 * * 0",
+      "prompt": "Run the dream skill to consolidate, prune, and optimize the persistent memory."
+    }
+  ]
+}
